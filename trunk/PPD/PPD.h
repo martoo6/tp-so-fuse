@@ -10,21 +10,10 @@ typedef struct{
 }sectType;
 
 typedef struct{
-	int cilinder;
-	int head;
+	int cilindro;
+	int cabeza;
 	int sector;
 }CHS;
-
-typedef struct{
-	long sector;
-	void *nextSector;//Apunta al prox de la lista
-}listaSectoresLectura;
-
-typedef struct{
-	long sector;
-	sectType data;
-	void *nextSector;//Apunta al prox de la lista
-}listaSectoresEscritura;
 
 typedef struct node{
 	void *estructura;
@@ -32,12 +21,12 @@ typedef struct node{
 }nodo;
 
 typedef struct{
-	unsigned long sector;
+	unsigned long numeroSector;
 }sectorLectura;
 
 typedef struct{
-	unsigned long sector;
-	sectType data;
+	unsigned long numeroSector;
+	sectType datos;
 }sectorEscritura;
 
 typedef struct{
@@ -70,15 +59,15 @@ int openFile(char *path);
 
 sectType* mapFile(int fileDescriptor, long fileSize, int mode);
 
-long getSector(CHS dir,int cilinder,int head,int sector);
+long getLogicSector(CHS dir,int cilindros,int cabezas,int sectoresPorPista);
 
-CHS getRealDir(long sector,int cilinders,int heads,int sectors);
+CHS getRealSector(long sector,int cabezas,int sectoresPorPista);
 
 void createSearchThread(pthread_t *thread,searchType *param);
 
-void bringSector2(long sector, listaSectoresLectura **lstSector);
+//void bringSector2(long sector, listaSectoresLectura **lstSector);
 
-void writeSector(long sector,sectType data, listaSectoresEscritura **lstSector);
+//void writeSector(long sector,sectType data, listaSectoresEscritura **lstSector);
 
 //___________________________________________________
 //___________________FIN HEADERS_____________________

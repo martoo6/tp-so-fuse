@@ -10,6 +10,8 @@
 
 #include <stdarg.h> //PARA ARGUMENTOS VARIABLES YAY !
 
+#include <math.h>
+
 #include "PPD.h"
 #include "list.c"
 #include "utilidades.c"
@@ -61,6 +63,26 @@ char enCilindroMayorMenorIgual(void *sector,va_list args_list){
 
 }
 
+int tiempo_entre_sectores(unsigned long numeroSector1,unsigned long numeroSector2){
+	/*RPM, tiempoPorCilindro (txc) y SectoresPorPista (sxp) debe ser proporcionado por el archivo de configuración*/
+
+	/*A modo de PRUEBA:*/
+	int RPM=6000;
+	int txc=20;
+	int sxp=10;
+	/*A modo de PRUEBA:*/
+
+	CHS dirFisica1 = getRealSector(numeroSector1,1,sxp);
+	CHS dirFisica2 = getRealSector(numeroSector2,1,sxp);
+
+	float txs=60000/RPM; /*tiempoPorSector*/
+	float tct=txc*fabs(dirFisica2.cilindro-dirFisica1.cilindro);//tiempoEntreCilindrosTotal
+	float vs=dirFisica2.sector-((dirFisica1.sector+tct/txs)%sxp);//Variación de Sectores
+	float tt=tct + (sxp/2 + vs*(1 - sxp/(2*(fabs(vs)))));*/
+
+	return tt;
+}
+
 
 int openFile(char *path){
 	int fileDescriptor;
@@ -92,31 +114,37 @@ int tipoSector(void **estructura){
 
 
 
-void createSearchThread(pthread_t *thread,searchType *param){
+void createSearchThread(pthread_t *id,searchType *param){
 	int result;
-	result = pthread_create(&thread, NULL,(void *) &threadScan, &param);
+	if(param->nPasos==0){
+		result = pthread_create(&id, NULL,threadScan, &param);
+	}else{
+		result = pthread_create(&id, NULL,threadScanNPasos, &param);
+	}
 	if (result){
-		printf("ERROR; return code from pthread_create() is %d\n", *thread);
+		printf("ERROR; return code from pthread_create() is %d\n", *id);
 		exit(-1);
 	}
 }
 
-/*
- * ___________________FIN FUNCIONES___________________
- */
-
-
-
-
 void *sectorMasCercano(void *lista,unsigned long sectorActual, char flagSuboBajo){
 	//Calcula el tiempo en llegar a cada sector y se queda con el que demore menos tiempo
 	//Se podria usar la funcion any_satisfy creada con una funcion duraMenosQue y tiempoBusqueda
+
 }
 
 void sector_destroy(void *sectorAux){
 	free(sectorAux);
 }
 
+
+/*
+ * ___________________FIN FUNCIONES___________________
+ */
+
+void threadScanNPasos(void *threadarg){
+
+}
 void threadScan(void *threadarg){
 	//searchType *my_data;
 	//my_data = (searchType*)(threadarg);
@@ -143,7 +171,8 @@ void threadScan(void *threadarg){
 			sectorLectura *sLectura = sectorBuscado;
 			//USO EN FORMA CORRECTA EL POSIX_MADVISE ?
 			//posix_madvise(pArchivo+sLectura->numeroSector, 512, POSIX_MADV_SEQUENTIAL );
-			sendViaSocket(pArchivo[sLectura->numeroSector]);
+			//sendViaSocket(pArchivo[sLectura->numeroSector]);
+			printf("Sector:%d Data:%d\n",sLectura->numeroSector,pArchivo[sLectura->numeroSector]);
 		}else{
 			//Con el numero de sector obtengo sus datos y luego los escribo.
 			sectorEscritura *sEscritura = sectorBuscado;
@@ -161,56 +190,50 @@ void threadScan(void *threadarg){
 
 
 int main(void) {
-	/*int archivo,i;
-	long sector;
+	int archivo,i;
+	long cant;
 	sectType *pArchivo;
-	void *lstSectores;
 	searchType param;
-	pthread_t searchThread;
-
-	lstSectores=NULL;
+	pthread_t *(searchThread);
 
 	archivo=openFile(FILEPATH);
 	pArchivo = mapFile(archivo, FILESIZE, PROT_READ);
 
-	param.maxSector=(FILESIZE/512);
+
+	//Simulacion de carga de sectores
+	t_list *nLista=collection_list_create();
+
+
+	for(i=0;i<100;i++){
+		sectorLectura *nSector=malloc(sizeof(sectorLectura));
+		nSector->numeroSector=(long)rand()%20001;
+		cant=collection_list_add(nLista,nSector);
+		printf("Sector: %d\n",nSector->numeroSector);
+	}
+
+	//Parametros para el Thread !
 	param.pArchivo=pArchivo;
-	param.sectorList=lstSectores;
+	param.listaPedidos=nLista;
 
-	createSearchThread(&searchThread,&param);
-	//createPrintThread(&printThread);
+	createSearchThread(searchThread,&param);
 
-	//buffer = bringSector(archivo,sector);
-
-	while(sector!=((long)("\0"))){
+/*	while(sector!=((long)("\0"))){
 		printf("Ingrese sector a buscar\n");
 		scanf("%d",&sector);
 		bringSector2(sector,lstSectores);
 		for(i=0;i<10000;i++){
 			printf("%d\n",buffer);
 		}
-
-		//writeSector(archivo,sector,buffer);
-		//buffer = bringSector(archivo,sector);
-		//printf("%d",buffer);
 	}
-	printf("\nFin");
+*/
+
+
 
 	if (munmap(pArchivo,FILESIZE) == -1) {
 		perror("Error desmapeando el archivo");
 	}
-	close(archivo);*/
+	close(archivo);
 
-	t_list *nLista=collection_list_create();
-	int i,cant;
-	{
-		for(i=0;i<100;i++){
-			sectorLectura *nSector=malloc(sizeof(sectorLectura));
-			nSector->numeroSector=(long)rand()%20001;
-			cant=collection_list_add(nLista,nSector);
-			printf("Sector: %d\n",nSector->numeroSector);
-		}
-	}
 	scanf("%d",&i);
 	return 0;
 }

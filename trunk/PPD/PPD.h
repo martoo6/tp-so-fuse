@@ -29,6 +29,7 @@ typedef struct{
 typedef struct{
 	sectType *pArchivo;
 	t_list *listaPedidos;
+	unsigned int nPasos;
 }searchType;
 
 /*
@@ -56,6 +57,10 @@ long getLogicSector(CHS dir,int cilindros,int cabezas,int sectoresPorPista);
 CHS getRealSector(long sector,int cabezas,int sectoresPorPista);
 
 void createSearchThread(pthread_t *thread,searchType *param);
+
+void threadScan(void *threadarg);
+
+void threadScanNPasos(void *threadarg);
 
 //void bringSector2(long sector, listaSectoresLectura **lstSector);
 

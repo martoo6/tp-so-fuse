@@ -26,11 +26,9 @@
 #define FILESIZE (524288*1024) //Segun el ejemplo del TP
 
 
-//___________________________________________________
-//___________________FUNCIONES_______________________
-//___________________________________________________
-
-
+/*
+ * ___________________FUNCIONES_______________________
+ */
 
 
 long getLogicSector(CHS dir,int cilindros,int cabezas,int sectoresPorPista){
@@ -48,24 +46,21 @@ CHS getRealSector(long sector,int cabezas,int sectoresPorPista){
 	return result;
 }
 
-char enCilindroMayorIgual(void *sector,unsigned long sectorActual){
-	CHS sectorReal,sectorRealActual;
-	unsigned long numeroSector;
-	memcpy(&numeroSector,sector,sizeof(unsigned long));
-	sectorReal=getRealSector(numeroSector,1,100);
-	sectorRealActual=getRealSector(sectorActual,1,100);
-	return(sectorReal.cilindro>=sectorRealActual.cilindro);
-}
 
-char enCilindroMayorIgual2(void *sector,va_list args_list){
+char enCilindroMayorMenorIgual(void *sector,va_list args_list){
 	CHS sectorReal,sectorRealActual;
 	unsigned long numeroSector;
 	memcpy(&numeroSector,sector,sizeof(unsigned long));
 	sectorReal=getRealSector(numeroSector,1,100);
 	sectorRealActual=getRealSector(va_arg(args_list,unsigned long),1,100);
-	return(sectorReal.cilindro>=sectorRealActual.cilindro);
+	if(va_arg(args_list,char)){
+		return(sectorReal.cilindro>=sectorRealActual.cilindro);
+	}else{
+		return(sectorReal.cilindro<=sectorRealActual.cilindro);
+	}
+
 }
-/*
+
 
 int openFile(char *path){
 	int fileDescriptor;
@@ -89,17 +84,6 @@ sectType* mapFile(int fileDescriptor, long fileSize, int mode){
 	return pArchivo;
 }
 
-//posix_madvise(0, size, POSIX_MADV_RANDOM );
-
-
-
-
-
-void traerSector(long sector, void **lista){
-	sectorLectura *aux= (sectorLectura*)malloc(sizeof(sectorLectura));
-	aux->sector=sector;
-	insertaUltimo(&aux,*lista);
-}
 
 int tipoSector(void **estructura){
 	return(sizeof(*estructura)==sizeof(sectorLectura));
@@ -117,15 +101,14 @@ void createSearchThread(pthread_t *thread,searchType *param){
 	}
 }
 
+/*
+ * ___________________FIN FUNCIONES___________________
+ */
 
-//___________________________________________________
-//___________________FIN FUNCIONES___________________
-//___________________________________________________
 
 
-*/
 
-void *sectorMasCercano(void *lista,unsigned long sectorActual){
+void *sectorMasCercano(void *lista,unsigned long sectorActual, char flagSuboBajo){
 	//Calcula el tiempo en llegar a cada sector y se queda con el que demore menos tiempo
 	//Se podria usar la funcion any_satisfy creada con una funcion duraMenosQue y tiempoBusqueda
 }
@@ -135,34 +118,41 @@ void sector_destroy(void *sectorAux){
 }
 
 void threadScan(void *threadarg){
-	searchType *my_data;
-	my_data = (searchType*)(threadarg);
+	//searchType *my_data;
+	//my_data = (searchType*)(threadarg);
+	searchType *my_data = threadarg;
+	sectType *pArchivo = my_data->pArchivo;
+	t_list *listaPedidos=my_data->listaPedidos;
 
+	char flagSuboBajo=0;//La funcion enCilindroMayorMenorIgual utiliza un flag para saber si la cabeza esta subiendo o bajando
 	unsigned long sectorActual=140;//Por archivo de configuracion o random
 	void *sectorBuscado;
-	t_list *listaPedidos=collection_list_create();
+
+
+
 	while(listaPedidos->elements_count!=0){
-		//SEMAFORO !!
-		//La funcion enCilindroMayorIgual2 deberia poder utilizar un flag apra que se fije tanto para arriva como para abajo.
-		//y al calcular el tiempo que tambien vea el mismo flag.
-		t_list *newList=collection_filter2(listaPedidos,enCilindroMayorIgual2,sectorActual);
+		//HACEN FALTA SEMAFOROS SI LAS FUNCIONES QUE MANEJAN LA LSITA YA LOS USAN ?
+		t_list *newList=collection_filter2(listaPedidos,enCilindroMayorMenorIgual,sectorActual,flagSuboBajo);
 		if(newList->elements_count!=0){
-			sectorBuscado =sectorMasCercano(newList, sectorActual);
+			sectorBuscado =sectorMasCercano(newList, sectorActual, flagSuboBajo);
 		}else{
-			sectorBuscado =sectorMasCercano(listaPedidos, sectorActual);
+			sectorBuscado =sectorMasCercano(listaPedidos, sectorActual, flagSuboBajo);
+			flagSuboBajo= (!flagSuboBajo);
 		}
-		//SE FIJA SI ES DE LECTURA O DE ESCRITURA PARA VER QUE OPERACION HACER
 		if(sizeof(*sectorBuscado)==sizeof(sectorLectura)){
-			//Ya tengo el numero de sector solo tengo q obtener sus datos y enviarlos
-			sectorLectura sLectura = (sectorLectura)(*sectorBuscado);
-			//enviar();
+			sectorLectura *sLectura = sectorBuscado;
+			//USO EN FORMA CORRECTA EL POSIX_MADVISE ?
+			//posix_madvise(pArchivo+sLectura->numeroSector, 512, POSIX_MADV_SEQUENTIAL );
+			sendViaSocket(pArchivo[sLectura->numeroSector]);
 		}else{
 			//Con el numero de sector obtengo sus datos y luego los escribo.
-			sectorEscritura sEscritura = (sectorEscritura)(*sectorBuscado);
-			//escribir(sectorBuscado.,);
+			sectorEscritura *sEscritura = sectorBuscado;
+			pArchivo[sEscritura->numeroSector]=sEscritura->datos;
+			msync(pArchivo+sEscritura->numeroSector,512,MS_SYNC);//Si falla es porq pArchivo+sEscritura->numeroSector tiene que se multiplo de el tamaño de pagina, podria syncronizar todo a lo caco tambien..=P
+			//Avisar que se escribio el archivo
 		}
-		//--HACER-- ELIMINAR EL NODO DE LA LISTA DE PEDIDOS
-		collection_list_destroy(newList,sector_destroy);//ELINA LISTA DEL FILTER
+		collection_list_removeByPointer(listaPedidos, sectorBuscado, sector_destroy );
+		collection_list_destroy(newList,sector_destroy);//ELIMINA LISTA DEL FILTER
 		sectorActual=sectorBuscado+1;//CUIDADO QUE NO VUELVE AL COMIENZO Y SALTA DE PISTA ! CAMBIAR!
 	}
 }
@@ -171,11 +161,9 @@ void threadScan(void *threadarg){
 
 
 int main(void) {
-	/*int archivo;
-	int i,printThread;
+	/*int archivo,i;
 	long sector;
 	sectType *pArchivo;
-	sectType buffer;
 	void *lstSectores;
 	searchType param;
 	pthread_t searchThread;
@@ -185,7 +173,6 @@ int main(void) {
 	archivo=openFile(FILEPATH);
 	pArchivo = mapFile(archivo, FILESIZE, PROT_READ);
 
-	param.buffer=&buffer;
 	param.maxSector=(FILESIZE/512);
 	param.pArchivo=pArchivo;
 	param.sectorList=lstSectores;
@@ -213,49 +200,17 @@ int main(void) {
 		perror("Error desmapeando el archivo");
 	}
 	close(archivo);*/
-	void printLoQueVenga(long sector){
-			printf("%d\n",sector);
-		}
-	void printSector(sectorLectura *sector){
-		printf("%d\n",sector->numeroSector);
-	}
-	long multiplicarPor(sectorLectura *sector,int a){
-		return(sector->numeroSector*a);
-	}
-	char mayorA(sectorLectura *data,int b){
-		return(data->numeroSector>b);
-	}
 
 	t_list *nLista=collection_list_create();
 	int i,cant;
 	{
 		for(i=0;i<100;i++){
-			sectorLectura *nSector=malloc(sizeof(sectType));
-			nSector->numeroSector=(long)rand()%201;
+			sectorLectura *nSector=malloc(sizeof(sectorLectura));
+			nSector->numeroSector=(long)rand()%20001;
 			cant=collection_list_add(nLista,nSector);
 			printf("Sector: %d\n",nSector->numeroSector);
 		}
 	}
-	/*{
-		unsigned long a=60;
-		if(collection_any_satisfy(nLista,enCilindroMayorIgual,a)){
-			printf("Hay mayores a %d\n",a);
-		}else{
-			printf("No hay mayores a %d\n",a);
-		}
-	}*/
-	{
-		scanf("%d",&i);
-		int sectorActual=101;
-		//t_list *newList=collection_filter(nLista,mayorA,b);
-		//t_list *newList2=collection_map(nLista,enCilindroMayorIgual,b);
-		//t_list *newList2=collection_filter(nLista,enCilindroMayorIgual,sectorActual);
-		t_list *newList3=collection_filter2(nLista,enCilindroMayorIgual2,sectorActual);
-		//collection_list_iterator(newList,printSector);
-		collection_list_iterator(newList3,printSector);
-		//collection_list_destroy(newList,sectorLectura_destroy);
-		collection_list_destroy(newList3,sector_destroy);
-
-	}
+	scanf("%d",&i);
 	return 0;
 }

@@ -15,6 +15,24 @@
 
 
 /*
+ char enCilindroMayorIgual(void *sector,unsigned long sectorActual){
+	CHS sectorReal,sectorRealActual;
+	unsigned long numeroSector;
+	memcpy(&numeroSector,sector,sizeof(unsigned long));
+	sectorReal=getRealSector(numeroSector,1,100);
+	sectorRealActual=getRealSector(sectorActual,1,100);
+	return(sectorReal.cilindro>=sectorRealActual.cilindro);
+}
+
+char enCilindroMayorIgual2(void *sector,va_list args_list){
+	CHS sectorReal,sectorRealActual;
+	unsigned long numeroSector;
+	memcpy(&numeroSector,sector,sizeof(unsigned long));
+	sectorReal=getRealSector(numeroSector,1,100);
+	sectorRealActual=getRealSector(va_arg(args_list,unsigned long),1,100);
+	return(sectorReal.cilindro>=sectorRealActual.cilindro);
+}
+
 void threadScan(void *threadarg){
 	searchType *my_data;
 	my_data = (searchType*)(threadarg);

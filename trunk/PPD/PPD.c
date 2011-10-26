@@ -68,17 +68,17 @@ int tiempo_entre_sectores(unsigned long numeroSector1,unsigned long numeroSector
 
 	/*A modo de PRUEBA:*/
 	int RPM=6000;
-	int txc=20;
-	int sxp=10;
+	int tiempoPorCilindro=20;
+	int SectoresPorPista=10;
 	/*A modo de PRUEBA:*/
 
-	CHS dirFisica1 = getRealSector(numeroSector1,1,sxp);
-	CHS dirFisica2 = getRealSector(numeroSector2,1,sxp);
+	CHS dirFisica1 = getRealSector(numeroSector1,1,SectoresPorPista);
+	CHS dirFisica2 = getRealSector(numeroSector2,1,SectoresPorPista);
 
-	float txs=60000/RPM; /*tiempoPorSector*/
-	float tct=txc*fabs(dirFisica2.cilindro-dirFisica1.cilindro);//tiempoEntreCilindrosTotal
-	float vs=dirFisica2.sector-((dirFisica1.sector+tct/txs)%sxp);//Variación de Sectores
-	float tt=tct + (sxp/2 + vs*(1 - sxp/(2*(fabs(vs)))));*/
+	float tiempoPorSector=60000/RPM; /*tiempoPorSector*/
+	float tiempoEntreCilindrosTotal=tiempoPorCilindro*fabs(dirFisica2.cilindro-dirFisica1.cilindro);//tiempoEntreCilindrosTotal
+	float vs=dirFisica2.sector-((dirFisica1.sector+(int)(tiempoEntreCilindrosTotal/tiempoPorSector))%SectoresPorPista);//Variación de Sectores
+	float tt=tiempoPorSector + (SectoresPorPista/2 + vs*(1 - SectoresPorPista/(2*(fabs(vs)))));
 
 	return tt;
 }

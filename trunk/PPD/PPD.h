@@ -1,9 +1,11 @@
 #define T_READ 1
 #define T_WRITE 0
 
-//___________________________________________________
-//____________VARIABLES Y ESTRUCTURAS________________
-//___________________________________________________
+#include "list.h"
+/*
+ * ____________VARIABLES Y ESTRUCTURAS________________
+ */
+
 
 typedef struct{
 	char a[512];
@@ -15,11 +17,6 @@ typedef struct{
 	int sector;
 }CHS;
 
-typedef struct node{
-	void *estructura;
-	struct node *sgte;
-}nodo;
-
 typedef struct{
 	unsigned long numeroSector;
 }sectorLectura;
@@ -30,22 +27,17 @@ typedef struct{
 }sectorEscritura;
 
 typedef struct{
-	long maxSector;
-	sectType *buffer;
 	sectType *pArchivo;
-	nodo *lstSector;
-	nodo *fstSector;
+	t_list *listaPedidos;
 }searchType;
 
-//___________________________________________________
-//________FIN VARIABLES Y ESTRUCTURAS________________
-//___________________________________________________
+/*
+ * ________FIN VARIABLES Y ESTRUCTURAS________________
+ */
 
-
-
-//___________________________________________________
-//___________________HEADERS_________________________
-//___________________________________________________
+/*
+ * ___________________HEADERS_________________________
+ */
 
 long getSector(CHS dir,int cilinders,int heads,int sectors);
 
@@ -68,7 +60,6 @@ void createSearchThread(pthread_t *thread,searchType *param);
 //void bringSector2(long sector, listaSectoresLectura **lstSector);
 
 //void writeSector(long sector,sectType data, listaSectoresEscritura **lstSector);
-
-//___________________________________________________
-//___________________FIN HEADERS_____________________
-//___________________________________________________
+/*
+ *___________________FIN HEADERS_____________________
+ */

@@ -142,6 +142,10 @@ void sector_destroy(void *sectorAux){
  * ___________________FIN FUNCIONES___________________
  */
 
+void threadConsola(void *threadarg){
+
+}
+
 void threadScanNPasos(void *threadarg){
 
 }
@@ -195,45 +199,46 @@ int main(void) {
 	sectType *pArchivo;
 	searchType param;
 	pthread_t *(searchThread);
-
-	archivo=openFile(FILEPATH);
-	pArchivo = mapFile(archivo, FILESIZE, PROT_READ);
+	pid_t idConsola;
 
 
-	//Simulacion de carga de sectores
-	t_list *nLista=collection_list_create();
+	idConsola=fork();
+
+	if(idConsola){
+		//Fork generó una copia, reemplazo la copia (YO) por el proceso PPD-Consola con execv
+		int error;
+		error=execv("/home/utn_so/Desarrollo/Workspace/PPD-Consola/Debug/PPD-Consola",NULL);
+		if(error==-1)perror("Error en cargado de proceso Consola");
+	}else{
+		archivo=openFile(FILEPATH);
+		pArchivo = mapFile(archivo, FILESIZE, PROT_READ);
 
 
-	for(i=0;i<100;i++){
-		sectorLectura *nSector=malloc(sizeof(sectorLectura));
-		nSector->numeroSector=(long)rand()%20001;
-		cant=collection_list_add(nLista,nSector);
-		printf("Sector: %d\n",nSector->numeroSector);
-	}
+		//Simulacion de carga de sectores
+		t_list *nLista=collection_list_create();
 
-	//Parametros para el Thread !
-	param.pArchivo=pArchivo;
-	param.listaPedidos=nLista;
 
-	createSearchThread(searchThread,&param);
-
-/*	while(sector!=((long)("\0"))){
-		printf("Ingrese sector a buscar\n");
-		scanf("%d",&sector);
-		bringSector2(sector,lstSectores);
-		for(i=0;i<10000;i++){
-			printf("%d\n",buffer);
+		for(i=0;i<20;i++){
+			sectorLectura *nSector=malloc(sizeof(sectorLectura));
+			nSector->numeroSector=(long)rand()%20001;
+			cant=collection_list_add(nLista,nSector);
+			printf("Sector: %d\n",nSector->numeroSector);
 		}
+
+		//Parametros para el Thread !
+		param.pArchivo=pArchivo;
+		param.listaPedidos=nLista;
+
+		createSearchThread(searchThread,&param);
+		pthread_create(&idConsola, NULL,threadConsola, NULL);
+
+		if (munmap(pArchivo,FILESIZE) == -1) {
+			perror("Error desmapeando el archivo");
+		}
+		close(archivo);
+
+		scanf("%d",&i);
 	}
-*/
 
-
-
-	if (munmap(pArchivo,FILESIZE) == -1) {
-		perror("Error desmapeando el archivo");
-	}
-	close(archivo);
-
-	scanf("%d",&i);
 	return 0;
 }

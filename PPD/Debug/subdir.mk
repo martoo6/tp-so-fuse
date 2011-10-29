@@ -20,7 +20,7 @@ C_DEPS += \
 %.o: ../%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C Compiler'
-	gcc -std=c99 -pthread -I"/home/utn_so/Desarrollo/Workspace/C-Talks/linux/common-libs/src/lib" -I"/home/utn_so/Desarrollo/Workspace/C-Talks/linux/common-libs/src/lib/collections" -I"/home/utn_so/Desarrollo/Workspace/Common Libs" -O0 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
+	gcc -std=c99 -I"/home/utn_so/Desarrollo/Workspace/C-Talks/linux/common-libs/src/lib" -I"/home/utn_so/Desarrollo/Workspace/C-Talks/linux/common-libs/src/lib/collections" -I"/home/utn_so/Desarrollo/Workspace/Common Libs" -O0 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

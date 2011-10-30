@@ -24,11 +24,15 @@ endif
 # All Target
 all: PPD
 
+dependents:
+	-cd /home/utn_so/Desarrollo/Workspace/C-Talks/Debug && $(MAKE) all
+	-cd /home/utn_so/Desarrollo/Workspace/Common-Libs/Debug && $(MAKE) all
+
 # Tool invocations
-PPD: $(OBJS) $(USER_OBJS)
+PPD: $(OBJS) $(USER_OBJS) /home/utn_so/Desarrollo/Workspace/C-Talks/Debug/libC-Talks.so /home/utn_so/Desarrollo/Workspace/Common-Libs/Debug/libCommon-Libs.so
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker'
-	gcc  -o "PPD" $(OBJS) $(USER_OBJS) $(LIBS)
+	gcc -L"/home/utn_so/Desarrollo/Workspace/C-Talks/Debug" -L"/home/utn_so/Desarrollo/Workspace/Common-Libs/Debug" -o "PPD" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -39,5 +43,7 @@ clean:
 
 .PHONY: all clean dependents
 .SECONDARY:
+/home/utn_so/Desarrollo/Workspace/C-Talks/Debug/libC-Talks.so:
+/home/utn_so/Desarrollo/Workspace/Common-Libs/Debug/libCommon-Libs.so:
 
 -include ../makefile.targets

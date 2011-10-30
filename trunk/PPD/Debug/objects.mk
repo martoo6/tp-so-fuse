@@ -4,5 +4,5 @@
 
 USER_OBJS :=
 
-LIBS := -lfuse -lpthread
+LIBS := -lC-Talks -lfuse -lpthread -lCommon-Libs
 

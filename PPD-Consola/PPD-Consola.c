@@ -15,10 +15,10 @@
 #include <pthread.h>
 #include <stdarg.h>
 
-#include "list.c"
-#include "array.c"
-#include "scanner.c"
-#include "commands.c"
+#include "list.h"
+#include "array.h"
+#include "scanner.h"
+#include "commands.h"
 
 void funcInfo(void *nada, t_array *nada2){
 	printf("Posicion actual: \n");

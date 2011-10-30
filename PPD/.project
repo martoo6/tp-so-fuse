@@ -3,6 +3,8 @@
 	<name>PPD</name>
 	<comment></comment>
 	<projects>
+		<project>C-Talks</project>
+		<project>Common-Libs</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

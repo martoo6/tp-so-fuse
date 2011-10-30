@@ -14,7 +14,7 @@
 
 #include "PPD.h"
 #include "list.c"
-#include "utilidades.c"
+#include "utilidades.h"
 
 
 

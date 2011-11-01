@@ -1,13 +1,15 @@
 #include <stdlib.h>
 #include <semaphore.h>
+#include <stdbool.h>
 #include "utilidades.h"
+
 //#include "../PPD/PPD.h"
 
 /*
  * @NAME: collection_any_satisfy
  * @DESC: Igual a funcion any_satisfy de Haskell
  */
-char collection_any_satisfy( t_list* list, char (*closure)(void*, void*),void *arg){
+bool collection_any_satisfy( t_list* list, char (*closure)(void*, void*),void *arg){
 	t_link_element *element = list->head;
 	sem_wait( &list->semaforo );
 	while( element != NULL ){
@@ -23,7 +25,7 @@ char collection_any_satisfy( t_list* list, char (*closure)(void*, void*),void *a
  * @NAME: collection_all_satisfy
  * @DESC: Igual a funcion all_satisfy de Haskell
  */
-char collection_all_satisfy( t_list* list, char (*closure)(void*, void*),void *arg){
+bool collection_all_satisfy( t_list* list, char (*closure)(void*, void*),void *arg){
 	t_link_element *element = list->head;
 	sem_wait( &list->semaforo );
 	while( element != NULL ){
@@ -75,7 +77,7 @@ void *collection_map( t_list* list, void *(*closure)(void*, void*),void *arg){
  * @NAME: collection_any_satisfy2
  * @DESC: Igual a funcion any_satisfy de Haskell
  */
-char collection_any_satisfy2( t_list* list, char (*closure)(void*, ...),...){
+bool collection_any_satisfy2( t_list* list, char (*closure)(void*, ...),...){
 	va_list args_list;
 	va_start(args_list,*closure);
 	t_link_element *element = list->head;
@@ -93,7 +95,7 @@ char collection_any_satisfy2( t_list* list, char (*closure)(void*, ...),...){
  * @NAME: collection_all_satisfy2
  * @DESC: Igual a funcion all_satisfy de Haskell
  */
-char collection_all_satisfy2( t_list* list, char (*closure)(void*, ...),...){
+bool collection_all_satisfy2( t_list* list, char (*closure)(void*, ...),...){
 	va_list args_list;
 	va_start(args_list,*closure);
 	t_link_element *element = list->head;
@@ -143,6 +145,25 @@ void *collection_map2( t_list* list, void *(*closure)(void*, ...),...){
 		newData=closure(element->data, args_list);
 		collection_list_add(listaAux,newData);
 		element = element->next;
+	}
+	sem_post( &list->semaforo );
+	return(listaAux);
+}
+/*
+ * @NAME: collection_take
+ * @DESC: Toma n elementos
+ */
+void *collection_take( t_list* list, unsigned int n){
+	t_list *listaAux=collection_list_create();
+	t_link_element *element = list->head;
+	unsigned int i=0;
+	sem_wait( &list->semaforo );
+	while(( element != NULL) && (i<n)){
+		void *newData=malloc(sizeof(*element));
+		newData=element->data;
+		collection_list_add(listaAux,newData);
+		element = element->next;
+		i++;
 	}
 	sem_post( &list->semaforo );
 	return(listaAux);

@@ -10,16 +10,17 @@
 
 #include <semaphore.h>
 #include <stdarg.h> //PARA ARGUMENTOS VARIABLES YAY !
-#include "../C-Talks Libs/linux/common-libs/src/lib/collections/list.h"
+#include <stdbool.h>
+#include "list.h"
 
-char collection_any_satisfy( t_list* list, char (*closure)(void*, void*),void *arg);
-char collection_any_satisfy2( t_list* list, char (*closure)(void*, ...),...);
-char collection_all_satisfy( t_list* list, char (*closure)(void*, void*),void *arg);
-char collection_all_satisfy2( t_list* list, char (*closure)(void*, ...),...);
+bool collection_any_satisfy( t_list* list, char (*closure)(void*, void*),void *arg);
+bool collection_any_satisfy2( t_list* list, char (*closure)(void*, ...),...);
+bool collection_all_satisfy( t_list* list, char (*closure)(void*, void*),void *arg);
+bool collection_all_satisfy2( t_list* list, char (*closure)(void*, ...),...);
 void *collection_filter( t_list* list, char (*closure)(void*, void*),void *arg);
 void *collection_filter2( t_list* list, char (*closure)(void*, ...),...);
 void *collection_map( t_list* list, void *(*closure)(void*, void*),void *arg);
 void *collection_map2( t_list* list, void *(*closure)(void*, ...),...);
-
+void *collection_take( t_list* list, unsigned int n);
 
 #endif /* UTILIDADES_H_ */

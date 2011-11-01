@@ -19,8 +19,6 @@
 
 
 
-
-
 #define FILEPATH "/home/utn_so/fat32.disk" //CAMBIAR PATH !
 #define SECTORSIZE (512)
 #define CLUSTERSIZE  (SECTORSIZE*8) //8 sectores por cluster = 4Kb
@@ -63,8 +61,9 @@ char enCilindroMayorMenorIgual(void *sector,va_list args_list){
 
 }
 
-int tiempo_entre_sectores(unsigned long numeroSector1,unsigned long numeroSector2){
+unsigned int tiempo_entre_sectores(unsigned long numeroSector1,unsigned long numeroSector2){
 	/*RPM, tiempoPorCilindro (txc) y SectoresPorPista (sxp) debe ser proporcionado por el archivo de configuración*/
+	//No esta teniendo en cuenta el tiempo de busqueda hacia arriva o abajo
 
 	/*A modo de PRUEBA:*/
 	int RPM=6000;
@@ -127,10 +126,22 @@ void createSearchThread(pthread_t *id,searchType *param){
 	}
 }
 
-void *sectorMasCercano(void *lista,unsigned long sectorActual, char flagSuboBajo){
+void *sectorMasCercano(t_list *list,unsigned long sectorActual, char flagSuboBajo){
 	//Calcula el tiempo en llegar a cada sector y se queda con el que demore menos tiempo
-	//Se podria usar la funcion any_satisfy creada con una funcion duraMenosQue y tiempoBusqueda
 
+	t_link_element *elem = list->head;
+	unsigned long numeroSector;
+	unsigned int ultimoTiempo=65535;//Maximo Numero de Unsigned Int
+	void *masCercano;
+
+	while(elem!=NULL){
+		memcpy(&numeroSector,elem->data,sizeof(unsigned long));
+		if(tiempo_entre_sectores(numeroSector,sectorActual)<ultimoTiempo){
+			masCercano = elem->data;
+		}
+		elem=elem->next;
+	}
+	return masCercano;
 }
 
 void sector_destroy(void *sectorAux){
@@ -155,38 +166,58 @@ void threadScan(void *threadarg){
 	searchType *my_data = threadarg;
 	sectType *pArchivo = my_data->pArchivo;
 	t_list *listaPedidos=my_data->listaPedidos;
+	t_list *listaPedidosAtender = listaPedidos;
+	bool ultimoSector=false;
 
 	char flagSuboBajo=0;//La funcion enCilindroMayorMenorIgual utiliza un flag para saber si la cabeza esta subiendo o bajando
 	unsigned long sectorActual=140;//Por archivo de configuracion o random
 	void *sectorBuscado;
 
+	while(1){
+		if(my_data->nPasos!=0){
+			listaPedidosAtender = collection_take(listaPedidos,my_data->nPasos);
+		}
+
+		while(listaPedidosAtender->elements_count!=0){
+			//HACEN FALTA SEMAFOROS SI LAS FUNCIONES QUE MANEJAN LA LSITA YA LOS USAN ?
+			t_list *newList=collection_filter2(listaPedidos,enCilindroMayorMenorIgual,sectorActual,flagSuboBajo);
 
 
-	while(listaPedidos->elements_count!=0){
-		//HACEN FALTA SEMAFOROS SI LAS FUNCIONES QUE MANEJAN LA LSITA YA LOS USAN ?
-		t_list *newList=collection_filter2(listaPedidos,enCilindroMayorMenorIgual,sectorActual,flagSuboBajo);
-		if(newList->elements_count!=0){
-			sectorBuscado =sectorMasCercano(newList, sectorActual, flagSuboBajo);
-		}else{
-			sectorBuscado =sectorMasCercano(listaPedidos, sectorActual, flagSuboBajo);
-			flagSuboBajo= (!flagSuboBajo);
+			if(newList->elements_count!=0){
+				sectorBuscado =sectorMasCercano(newList, sectorActual, flagSuboBajo);
+			}else{
+				if(ultimoSector){
+					sectorBuscado =sectorMasCercano(listaPedidos, sectorActual, flagSuboBajo);
+					flagSuboBajo= (!flagSuboBajo);
+				}else{
+					sectorBuscado = traerUltimoSector(flagSuboBajo);
+					ultimoSector=true;
+				}
+
+			}
+			if(sizeof(*sectorBuscado)==sizeof(sectorLectura)){
+				sectorLectura *sLectura = sectorBuscado;
+				if(ultimoSector){
+					//ESTOY LEYENDO EL ULTIMO SECTOR SIN PROCESARLO !
+					ultimoSector=false;
+				}else{
+					//USO EN FORMA CORRECTA EL POSIX_MADVISE ?
+					//posix_madvise(pArchivo+sLectura->numeroSector, 512, POSIX_MADV_SEQUENTIAL );
+					//sendViaSocket(pArchivo[sLectura->numeroSector]);
+					printf("Sector:%d Data:%d\n",sLectura->numeroSector,pArchivo[sLectura->numeroSector]);
+				}
+			}else{
+				//Con el numero de sector obtengo sus datos y luego los escribo.
+				sectorEscritura *sEscritura = sectorBuscado;
+				pArchivo[sEscritura->numeroSector]=sEscritura->datos;
+				msync(pArchivo+sEscritura->numeroSector,512,MS_SYNC);//Si falla es porq pArchivo+sEscritura->numeroSector tiene que se multiplo de el tamaño de pagina, podria syncronizar todo a lo caco tambien..=P
+				//Avisar que se escribio el archivo
+			}
+			collection_list_removeByPointer(listaPedidos, sectorBuscado, sector_destroy );
+			collection_list_removeByPointer(listaPedidosAtender, sectorBuscado, sector_destroy );
+			collection_list_destroy(newList,sector_destroy);//ELIMINA LISTA DEL FILTER
+			sectorActual=sectorBuscado+1;//CUIDADO QUE NO VUELVE AL COMIENZO Y SALTA DE PISTA ! CAMBIAR!
 		}
-		if(sizeof(*sectorBuscado)==sizeof(sectorLectura)){
-			sectorLectura *sLectura = sectorBuscado;
-			//USO EN FORMA CORRECTA EL POSIX_MADVISE ?
-			//posix_madvise(pArchivo+sLectura->numeroSector, 512, POSIX_MADV_SEQUENTIAL );
-			//sendViaSocket(pArchivo[sLectura->numeroSector]);
-			printf("Sector:%d Data:%d\n",sLectura->numeroSector,pArchivo[sLectura->numeroSector]);
-		}else{
-			//Con el numero de sector obtengo sus datos y luego los escribo.
-			sectorEscritura *sEscritura = sectorBuscado;
-			pArchivo[sEscritura->numeroSector]=sEscritura->datos;
-			msync(pArchivo+sEscritura->numeroSector,512,MS_SYNC);//Si falla es porq pArchivo+sEscritura->numeroSector tiene que se multiplo de el tamaño de pagina, podria syncronizar todo a lo caco tambien..=P
-			//Avisar que se escribio el archivo
-		}
-		collection_list_removeByPointer(listaPedidos, sectorBuscado, sector_destroy );
-		collection_list_destroy(newList,sector_destroy);//ELIMINA LISTA DEL FILTER
-		sectorActual=sectorBuscado+1;//CUIDADO QUE NO VUELVE AL COMIENZO Y SALTA DE PISTA ! CAMBIAR!
 	}
 }
 

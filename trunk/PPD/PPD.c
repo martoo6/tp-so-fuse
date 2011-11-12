@@ -6,7 +6,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <pthread.h>
+#include <signal.h>
+#include <stdbool.h>
 
 #include <stdarg.h> //PARA ARGUMENTOS VARIABLES YAY !
 
@@ -15,7 +18,7 @@
 #include "PPD.h"
 #include "list.c"
 #include "utilidades.h"
-
+#include "socketsUnix.h"
 
 
 
@@ -30,6 +33,9 @@
  * ___________________FUNCIONES_______________________
  */
 
+void sigchld_handler(int signal){
+	while(waitpid(-1,0,WNOHANG));
+}
 
 long getLogicSector(CHS dir,int cilindros,int cabezas,int sectoresPorPista){
 	return ((dir.cilindro*cabezas*sectoresPorPista)+(sectoresPorPista*dir.cabeza)+(dir.sector-1));
@@ -37,28 +43,32 @@ long getLogicSector(CHS dir,int cilindros,int cabezas,int sectoresPorPista){
 
 CHS getRealSector(long sector,int cabezas,int sectoresPorPista){
 	//DEBERIA DE LEER EL ARCHIVO DE CONFIGURACION !
-	cabezas=1;
-	sectoresPorPista=100;
 	CHS result;
+	cabezas=1;
+	sectoresPorPista=10;
 	result.cilindro=sector/(cabezas*sectoresPorPista);
 	result.cabeza=(sector%(cabezas*sectoresPorPista))/sectoresPorPista;
-	result.sector=((sector%(cabezas*sectoresPorPista))%sectoresPorPista)+1;//Con codificacion sin sector 0;
+	result.sector=((sector%(cabezas*sectoresPorPista))%sectoresPorPista);
 	return result;
 }
 
 
 char enCilindroMayorMenorIgual(void *sector,va_list args_list){
 	CHS sectorReal,sectorRealActual;
-	unsigned long numeroSector;
+	unsigned long numeroSector, numeroSectorActual;
+	bool flagSubo;
+	numeroSectorActual=va_arg(args_list,long);
+	flagSubo=(bool)va_arg(args_list,int);
+
 	memcpy(&numeroSector,sector,sizeof(unsigned long));
 	sectorReal=getRealSector(numeroSector,1,100);
-	sectorRealActual=getRealSector(va_arg(args_list,unsigned long),1,100);
-	if(va_arg(args_list,char)){
+	//sectorRealActual=getRealSector(numeroSector,1,100);
+	//sectorRealActual.cabeza=8;
+	sectorRealActual=getRealSector(numeroSectorActual,1,100);
+	if(flagSubo){
 		return(sectorReal.cilindro>=sectorRealActual.cilindro);
-	}else{
-		return(sectorReal.cilindro<=sectorRealActual.cilindro);
 	}
-
+	return(sectorReal.cilindro<=sectorRealActual.cilindro);
 }
 
 unsigned int tiempo_entre_sectores(unsigned long numeroSector1,unsigned long numeroSector2){
@@ -68,20 +78,60 @@ unsigned int tiempo_entre_sectores(unsigned long numeroSector1,unsigned long num
 	/*A modo de PRUEBA:*/
 	int RPM=6000;
 	int tiempoPorCilindro=20;
-	int SectoresPorPista=10;
+	int sectoresPorPista=10;
 	/*A modo de PRUEBA:*/
 
-	CHS dirFisica1 = getRealSector(numeroSector1,1,SectoresPorPista);
-	CHS dirFisica2 = getRealSector(numeroSector2,1,SectoresPorPista);
+	CHS dirFisica1 = getRealSector(numeroSector1,1,sectoresPorPista);
+	CHS dirFisica2 = getRealSector(numeroSector2,1,sectoresPorPista);
 
-	float tiempoPorSector=60000/RPM; /*tiempoPorSector*/
+	float tiempoPorSector=60000/(RPM*sectoresPorPista); /*tiempoPorSector*/
 	float tiempoEntreCilindrosTotal=tiempoPorCilindro*fabs(dirFisica2.cilindro-dirFisica1.cilindro);//tiempoEntreCilindrosTotal
-	float vs=dirFisica2.sector-((dirFisica1.sector+(int)(tiempoEntreCilindrosTotal/tiempoPorSector))%SectoresPorPista);//Variación de Sectores
-	float tt=tiempoPorSector + (SectoresPorPista/2 + vs*(1 - SectoresPorPista/(2*(fabs(vs)))));
+	float vs=dirFisica2.sector-((dirFisica1.sector+(int)(tiempoEntreCilindrosTotal/tiempoPorSector))%sectoresPorPista);//Variación de Sectores
+	float tt=tiempoPorSector + (sectoresPorPista/2 + vs*(1 - sectoresPorPista/(2*(fabs(vs)))));
 
 	return tt;
 }
 
+void *traerUltimoSector (unsigned long numeroSector1,bool flagSube){
+	/*Acá debe usar las variables globales y por eso dejo lo que sigue A MODO DE PRUEBA hasta que termine
+	 lo del archivo Configuración*/
+
+
+	/*A modo de PRUEBA:*/
+	int RPM=6000;
+	int tiempoPorCilindro=20;
+	int sectoresPorPista=10;
+	int cilindroFinal=50;
+	int cilindroDestino;
+	/*A modo de PRUEBA:*/
+	float tiempoPorSector,tiempoEntreCilindrosTotal;
+	sectorLectura *sectorFinal=NULL;
+	CHS dirFisica1 = getRealSector(numeroSector1,1,sectoresPorPista);
+
+	if (flagSube){
+		cilindroDestino=cilindroFinal;
+	}else{
+		cilindroDestino=0;
+	}
+	tiempoPorSector=60000/(RPM*sectoresPorPista);
+	tiempoEntreCilindrosTotal=tiempoPorCilindro*fabs(cilindroDestino-dirFisica1.cilindro);
+	sectorFinal->numeroSector=(dirFisica1.sector+(int)(tiempoEntreCilindrosTotal/tiempoPorSector))%sectoresPorPista;
+	return ((void*)sectorFinal);
+}
+
+unsigned long sigSector(void *sectorActual){
+	int sectoresPorPista=10;
+	unsigned long numeroSector;
+	CHS dirFisica;
+	sectorLectura *sLectura;
+	sLectura = sectorActual;
+	//memcpy(&numeroSector,sectorActual,sizeof(unsigned long));
+	dirFisica = getRealSector(sLectura->numeroSector,1,sectoresPorPista);
+	if((dirFisica.sector+1)>=sectoresPorPista){
+		return (sLectura->numeroSector+1-sectoresPorPista);
+	}
+	return (sLectura->numeroSector+1);
+}
 
 int openFile(char *path){
 	int fileDescriptor;
@@ -115,11 +165,7 @@ int tipoSector(void **estructura){
 
 void createSearchThread(pthread_t *id,searchType *param){
 	int result;
-	if(param->nPasos==0){
-		result = pthread_create(&id, NULL,threadScan, &param);
-	}else{
-		result = pthread_create(&id, NULL,threadScanNPasos, &param);
-	}
+	result = pthread_create(&id, NULL,threadScan, &param);
 	if (result){
 		printf("ERROR; return code from pthread_create() is %d\n", *id);
 		exit(-1);
@@ -133,14 +179,21 @@ void *sectorMasCercano(t_list *list,unsigned long sectorActual, char flagSuboBaj
 	unsigned long numeroSector;
 	unsigned int ultimoTiempo=65535;//Maximo Numero de Unsigned Int
 	void *masCercano;
+	sectorLectura *a;
 
 	while(elem!=NULL){
 		memcpy(&numeroSector,elem->data,sizeof(unsigned long));
 		if(tiempo_entre_sectores(numeroSector,sectorActual)<ultimoTiempo){
+			ultimoTiempo=tiempo_entre_sectores(numeroSector,sectorActual);
 			masCercano = elem->data;
 		}
 		elem=elem->next;
 	}
+
+
+		a = masCercano;
+		printf("%d",a->numeroSector);
+
 	return masCercano;
 }
 
@@ -148,54 +201,67 @@ void sector_destroy(void *sectorAux){
 	free(sectorAux);
 }
 
-
 /*
  * ___________________FIN FUNCIONES___________________
  */
 
 void threadConsola(void *threadarg){
+	t_socket_unix_server *server=sockets_unix_createServer();
+	t_socket_unix_client *client;
+	t_socket_buffer *buffer;
 
+	sockets_unix_listen(server);
+
+	client=sockets_unix_accept(server);
+	while(1){
+		buffer = sockets_unix_recv(client);
+		printf("El cliente dice: ***** %s *****\n", buffer);
+		sleep(1);
+	}
 }
 
-void threadScanNPasos(void *threadarg){
 
-}
 void threadScan(void *threadarg){
 	//searchType *my_data;
 	//my_data = (searchType*)(threadarg);
-	searchType *my_data = threadarg;
-	sectType *pArchivo = my_data->pArchivo;
-	t_list *listaPedidos=my_data->listaPedidos;
-	t_list *listaPedidosAtender = listaPedidos;
+	searchType *my_data;
+	sectType *pArchivo;
+	t_list *listaPedidos;
+	t_list *listaPedidosAtender;
 	bool ultimoSector=false;
 
-	char flagSuboBajo=0;//La funcion enCilindroMayorMenorIgual utiliza un flag para saber si la cabeza esta subiendo o bajando
+	bool flagSubo=true;//La funcion enCilindroMayorMenorIgual utiliza un flag para saber si la cabeza esta subiendo o bajando
 	unsigned long sectorActual=140;//Por archivo de configuracion o random
 	void *sectorBuscado;
 
+	my_data = threadarg;
+	pArchivo = my_data->pArchivo;
+	listaPedidos=my_data->listaPedidos;
+	listaPedidosAtender = listaPedidos;
 	while(1){
 		if(my_data->nPasos!=0){
 			listaPedidosAtender = collection_take(listaPedidos,my_data->nPasos);
 		}
 
-		while(listaPedidosAtender->elements_count!=0){
+		while((listaPedidosAtender->elements_count)!=0){
 			//HACEN FALTA SEMAFOROS SI LAS FUNCIONES QUE MANEJAN LA LSITA YA LOS USAN ?
-			t_list *newList=collection_filter2(listaPedidos,enCilindroMayorMenorIgual,sectorActual,flagSuboBajo);
+			t_list *newList=collection_filter2(listaPedidosAtender,enCilindroMayorMenorIgual,sectorActual,flagSubo);
 
 
 			if(newList->elements_count!=0){
-				sectorBuscado =sectorMasCercano(newList, sectorActual, flagSuboBajo);
+				sectorBuscado =sectorMasCercano(newList, sectorActual, flagSubo);
 			}else{
 				if(ultimoSector){
-					sectorBuscado =sectorMasCercano(listaPedidos, sectorActual, flagSuboBajo);
-					flagSuboBajo= (!flagSuboBajo);
+					sectorBuscado =sectorMasCercano(listaPedidos, sectorActual, flagSubo);
+					flagSubo= (!flagSubo);
 				}else{
-					sectorBuscado = traerUltimoSector(flagSuboBajo);
+					sectorBuscado = traerUltimoSector(sectorActual,flagSubo);
 					ultimoSector=true;
 				}
 
 			}
-			if(sizeof(*sectorBuscado)==sizeof(sectorLectura)){
+			//lala
+			if(sizeof(sectorBuscado)==sizeof(sectorLectura)){
 				sectorLectura *sLectura = sectorBuscado;
 				if(ultimoSector){
 					//ESTOY LEYENDO EL ULTIMO SECTOR SIN PROCESARLO !
@@ -204,7 +270,8 @@ void threadScan(void *threadarg){
 					//USO EN FORMA CORRECTA EL POSIX_MADVISE ?
 					//posix_madvise(pArchivo+sLectura->numeroSector, 512, POSIX_MADV_SEQUENTIAL );
 					//sendViaSocket(pArchivo[sLectura->numeroSector]);
-					printf("Sector:%d Data:%d\n",sLectura->numeroSector,pArchivo[sLectura->numeroSector]);
+					printf("Sector:%d Data: Not avaiable yet\n",sLectura->numeroSector);//PROBLEMA ACA
+					//printf("Sector:%d Data:%d\n",sLectura->numeroSector,pArchivo[sLectura->numeroSector]);//PROBLEMA ACA
 				}
 			}else{
 				//Con el numero de sector obtengo sus datos y luego los escribo.
@@ -213,10 +280,10 @@ void threadScan(void *threadarg){
 				msync(pArchivo+sEscritura->numeroSector,512,MS_SYNC);//Si falla es porq pArchivo+sEscritura->numeroSector tiene que se multiplo de el tamaño de pagina, podria syncronizar todo a lo caco tambien..=P
 				//Avisar que se escribio el archivo
 			}
-			collection_list_removeByPointer(listaPedidos, sectorBuscado, sector_destroy );
-			collection_list_removeByPointer(listaPedidosAtender, sectorBuscado, sector_destroy );
+			sectorActual=sigSector(sectorBuscado);//CUIDADO QUE NO VUELVE AL COMIENZO Y SALTA DE PISTA ! CAMBIAR!
+			//collection_list_removeByPointer(listaPedidos, sectorBuscado, sector_destroy );ACA HAY ALGO RARO
+			collection_list_removeByContent(listaPedidosAtender, sectorBuscado, sector_destroy );
 			collection_list_destroy(newList,sector_destroy);//ELIMINA LISTA DEL FILTER
-			sectorActual=sectorBuscado+1;//CUIDADO QUE NO VUELVE AL COMIENZO Y SALTA DE PISTA ! CAMBIAR!
 		}
 	}
 }
@@ -232,15 +299,17 @@ int main(void) {
 	pthread_t *(searchThread);
 	pid_t idConsola;
 
+	//signal(SIGCHLD,sigchld_handler);
 
 	idConsola=fork();
 
-	if(idConsola){
+	if(!idConsola){
 		//Fork generó una copia, reemplazo la copia (YO) por el proceso PPD-Consola con execv
 		int error;
 		error=execv("/home/utn_so/Desarrollo/Workspace/PPD-Consola/Debug/PPD-Consola",NULL);
 		if(error==-1)perror("Error en cargado de proceso Consola");
 	}else{
+
 		archivo=openFile(FILEPATH);
 		pArchivo = mapFile(archivo, FILESIZE, PROT_READ);
 
@@ -249,7 +318,7 @@ int main(void) {
 		t_list *nLista=collection_list_create();
 
 
-		for(i=0;i<20;i++){
+		for(i=0;i<5;i++){
 			sectorLectura *nSector=malloc(sizeof(sectorLectura));
 			nSector->numeroSector=(long)rand()%20001;
 			cant=collection_list_add(nLista,nSector);
@@ -259,9 +328,13 @@ int main(void) {
 		//Parametros para el Thread !
 		param.pArchivo=pArchivo;
 		param.listaPedidos=nLista;
+		param.nPasos=0;//0 para trabajar sin n pasos.
 
-		createSearchThread(searchThread,&param);
+		//createSearchThread(searchThread,&param);
+
+		pthread_create(&searchThread, NULL,threadScan, &param);
 		pthread_create(&idConsola, NULL,threadConsola, NULL);
+
 
 		if (munmap(pArchivo,FILESIZE) == -1) {
 			perror("Error desmapeando el archivo");

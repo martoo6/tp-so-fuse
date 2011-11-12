@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <semaphore.h>
 #include <stdbool.h>
+#include <string.h>
 #include "utilidades.h"
 
 //#include "../PPD/PPD.h"
@@ -48,7 +49,8 @@ void *collection_filter( t_list* list, char (*closure)(void*, void*),void *arg){
 	while( element != NULL ){
 		if(closure(element->data, arg)){
 			void *newData=malloc(sizeof(element->data));
-			newData=element->data;
+			memcpy(newData,element->data,sizeof(element->data));
+			//newData=element->data;
 			collection_list_add(listaAux,newData);
 		}
 		element = element->next;
@@ -122,7 +124,8 @@ void *collection_filter2( t_list* list, char (*closure)(void*, ...),...){
 	while( element != NULL ){
 		if(closure(element->data, args_list)){
 			void *newData=malloc(sizeof(element->data));
-			newData=element->data;
+			memcpy(newData,element->data,sizeof(element->data));
+			//newData=element->data;
 			collection_list_add(listaAux,newData);
 		}
 		element = element->next;
@@ -142,7 +145,8 @@ void *collection_map2( t_list* list, void *(*closure)(void*, ...),...){
 	sem_wait( &list->semaforo );
 	while( element != NULL ){
 		void *newData=malloc(sizeof(*closure));
-		newData=closure(element->data, args_list);
+		//newData=closure(element->data, args_list);
+		memcpy(newData,closure(element->data, args_list),sizeof(*closure));
 		collection_list_add(listaAux,newData);
 		element = element->next;
 	}
@@ -160,6 +164,7 @@ void *collection_take( t_list* list, unsigned int n){
 	sem_wait( &list->semaforo );
 	while(( element != NULL) && (i<n)){
 		void *newData=malloc(sizeof(*element));
+		//memcpy(newData,element->data,sizeof(element->data));
 		newData=element->data;
 		collection_list_add(listaAux,newData);
 		element = element->next;
@@ -167,4 +172,81 @@ void *collection_take( t_list* list, unsigned int n){
 	}
 	sem_post( &list->semaforo );
 	return(listaAux);
+}
+/*
+ * @NAME: collection_list_removeByContent
+ * @DESC: Elimina un elemento de la lista segun su contenido
+ */
+bool collection_list_removeByContent( t_list *list, void *p_data,  void (*data_destroyer)(void*) ){
+	//void *data = NULL;
+
+	t_link_element *aux_element = NULL;
+	char *data=p_data;
+
+	if( list->head == NULL) return false;
+
+	sem_wait( &list->semaforo );
+
+	char *data_aux;
+	data_aux=list->head->data;
+	if(strcmp(data,data_aux)){
+		aux_element = list->head;
+		p_data = list->head->data;
+		list->head = list->head->next;
+	}else{
+		t_link_element *element = list->head;
+		//Comparano el contenido como si fueran caracteres.. :S
+		data_aux=element->next->data;
+		while((element->next!=NULL)&&(strcmp(data,data_aux))){
+			element=element->next;
+			data_aux=element->next->data;
+		}
+		if(element->next==NULL){
+			sem_post( &list->semaforo );
+			return false;
+		}
+		p_data		  = element->data;
+		aux_element   = element->next;
+		element->next = element->next->next;
+	}
+	list->elements_count--;
+	free(aux_element);
+	data_destroyer(p_data);
+	sem_post( &list->semaforo );
+	return true;
+}
+/*
+ * @NAME: collection_list_removeByPointer2
+ * @DESC: Elimina un elemento de la lista segun a donde apunte data
+ */
+bool collection_list_removeByPointer2( t_list *list, void *data,  void (*data_destroyer)(void*) ){
+	//void *data = NULL;
+
+	t_link_element *aux_element = NULL;
+
+	if( list->head == NULL) return false;
+
+	sem_wait( &list->semaforo );
+
+
+	if(list->head->data==data){
+		aux_element = list->head;
+		list->head = list->head->next;
+	}else{
+		t_link_element *element = list->head;
+		while((element->next!=NULL)&&(element->next->data!=data)){
+			element=element->next;
+		}
+		if(element->next==NULL){
+			sem_post( &list->semaforo );
+			return false;
+		}
+		aux_element   = element->next;
+		element->next = element->next->next;
+	}
+	list->elements_count--;
+	free(aux_element);
+	data_destroyer(data);
+	sem_post( &list->semaforo );
+	return true;
 }

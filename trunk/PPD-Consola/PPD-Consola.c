@@ -14,11 +14,17 @@
 #include <sys/mman.h>
 #include <pthread.h>
 #include <stdarg.h>
+#include <sys/un.h>
+#include <sys/socket.h>
 
+
+#include "socketsUnix.h"
 #include "list.h"
 #include "array.h"
 #include "scanner.h"
 #include "commands.h"
+
+#define SOCK_PATH "socket_consola"
 
 void funcInfo(void *nada, t_array *nada2){
 	printf("Posicion actual: \n");
@@ -36,16 +42,31 @@ void funcTrace(void *nada, t_array *nada2){
 }
 
 int main(int argc,char *argv[]){
+	/*int s, len;
+	struct sockaddr_un local;*/
+	char input[20];
+	t_socket_unix_client *client;
+
 	t_commands *comandos = commands_create("-", "", " ");
 	commands_add(comandos, "info",funcInfo);
 	commands_add(comandos, "clean",funcClean);
 	commands_add(comandos, "trace",funcTrace);
 
-	char input[20];
+	printf("** Welcome back master **\n\n");
+
+	client= sockets_unix_createClient();
+	while(!sockets_unix_connect(client)){
+		sleep(1);
+	};
+	sockets_unix_sendString(client,"Luke i'm you client");
+
+
+
 	while(1){
 		scanf("%s",input);
 		commands_parser(comandos,input);
 		sleep(1);
 	}
+	sockets_unix_destroyClient(client);
 	return 0;
 }

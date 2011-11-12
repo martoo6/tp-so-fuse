@@ -22,5 +22,7 @@ void *collection_filter2( t_list* list, char (*closure)(void*, ...),...);
 void *collection_map( t_list* list, void *(*closure)(void*, void*),void *arg);
 void *collection_map2( t_list* list, void *(*closure)(void*, ...),...);
 void *collection_take( t_list* list, unsigned int n);
+bool collection_list_removeByContent( t_list *list, void *data, void (*data_destroyer)(void*) );
+bool collection_list_removeByPointer2( t_list *list, void *data, void (*data_destroyer)(void*) );
 
 #endif /* UTILIDADES_H_ */

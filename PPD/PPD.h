@@ -52,9 +52,9 @@ int openFile(char *path);
 
 sectType* mapFile(int fileDescriptor, long fileSize, int mode);
 
-long getLogicSector(CHS dir,int cilindros,int cabezas,int sectoresPorPista);
+unsigned long getLogicSector(CHS dir,int cilindros,int cabezas,int sectoresPorPista);
 
-CHS getRealSector(long sector,int cabezas,int sectoresPorPista);
+CHS getRealSector(unsigned long sector,int cabezas,int sectoresPorPista);
 
 void createSearchThread(pthread_t *thread,searchType *param);
 

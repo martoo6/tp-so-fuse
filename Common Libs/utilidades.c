@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <semaphore.h>
 #include <stdbool.h>
@@ -123,8 +124,11 @@ void *collection_filter2( t_list* list, char (*closure)(void*, ...),...){
 	sem_wait( &list->semaforo );
 	while( element != NULL ){
 		if(closure(element->data, args_list)){
+			//unsigned long *a;
+			//a=element->data;
 			void *newData=malloc(sizeof(element->data));
-			memcpy(newData,element->data,sizeof(element->data));
+			memcpy(newData,element->data,sizeof(element->data));//Si pasara pos donde apuntan punteros seria mas liviano
+			//printf("Añado el sector ** %ld ** a la lista\n",*a);
 			//newData=element->data;
 			collection_list_add(listaAux,newData);
 		}
@@ -181,7 +185,8 @@ bool collection_list_removeByContent( t_list *list, void *p_data,  void (*data_d
 	//void *data = NULL;
 
 	t_link_element *aux_element = NULL;
-	char *data=p_data;
+	char *data;
+	data=p_data;
 
 	if( list->head == NULL) return false;
 
@@ -189,15 +194,15 @@ bool collection_list_removeByContent( t_list *list, void *p_data,  void (*data_d
 
 	char *data_aux;
 	data_aux=list->head->data;
-	if(strcmp(data,data_aux)){
+	if(strcmp(data,data_aux)==0){
 		aux_element = list->head;
 		p_data = list->head->data;
 		list->head = list->head->next;
 	}else{
 		t_link_element *element = list->head;
-		//Comparano el contenido como si fueran caracteres.. :S
+		//Comparo el contenido como si fueran caracteres.. :S
 		data_aux=element->next->data;
-		while((element->next!=NULL)&&(strcmp(data,data_aux))){
+		while((element->next!=NULL)&&(strcmp(data,data_aux)!=0)){
 			element=element->next;
 			data_aux=element->next->data;
 		}
@@ -205,7 +210,7 @@ bool collection_list_removeByContent( t_list *list, void *p_data,  void (*data_d
 			sem_post( &list->semaforo );
 			return false;
 		}
-		p_data		  = element->data;
+		p_data		  = element->next->data;
 		aux_element   = element->next;
 		element->next = element->next->next;
 	}

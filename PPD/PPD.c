@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include <stdarg.h> //PARA ARGUMENTOS VARIABLES YAY !
 
@@ -37,15 +38,15 @@ void sigchld_handler(int signal){
 	while(waitpid(-1,0,WNOHANG));
 }
 
-long getLogicSector(CHS dir,int cilindros,int cabezas,int sectoresPorPista){
+unsigned long getLogicSector(CHS dir,int cilindros,int cabezas,int sectoresPorPista){
 	return ((dir.cilindro*cabezas*sectoresPorPista)+(sectoresPorPista*dir.cabeza)+(dir.sector-1));
 }
 
-CHS getRealSector(long sector,int cabezas,int sectoresPorPista){
+CHS getRealSector(unsigned long sector,int cabezas,int sectoresPorPista){
 	//DEBERIA DE LEER EL ARCHIVO DE CONFIGURACION !
 	CHS result;
 	cabezas=1;
-	sectoresPorPista=10;
+	//sectoresPorPista=10;
 	result.cilindro=sector/(cabezas*sectoresPorPista);
 	result.cabeza=(sector%(cabezas*sectoresPorPista))/sectoresPorPista;
 	result.sector=((sector%(cabezas*sectoresPorPista))%sectoresPorPista);
@@ -55,16 +56,19 @@ CHS getRealSector(long sector,int cabezas,int sectoresPorPista){
 
 char enCilindroMayorMenorIgual(void *sector,va_list args_list){
 	CHS sectorReal,sectorRealActual;
-	unsigned long numeroSector, numeroSectorActual;
+	unsigned long numeroSectorActual;
+	unsigned long *numeroSector=sector;
+
 	bool flagSubo;
-	numeroSectorActual=va_arg(args_list,long);
+	numeroSectorActual=va_arg(args_list,unsigned long);
 	flagSubo=(bool)va_arg(args_list,int);
 
-	memcpy(&numeroSector,sector,sizeof(unsigned long));
-	sectorReal=getRealSector(numeroSector,1,100);
+	sectorReal=getRealSector(*numeroSector,1,10);
 	//sectorRealActual=getRealSector(numeroSector,1,100);
 	//sectorRealActual.cabeza=8;
-	sectorRealActual=getRealSector(numeroSectorActual,1,100);
+	sectorRealActual=getRealSector(numeroSectorActual,1,10);
+	//printf("NumeroSector: %ld\n",*numeroSector);
+	//printf("NumeroSectorActual: %ld\n",numeroSectorActual);
 	if(flagSubo){
 		return(sectorReal.cilindro>=sectorRealActual.cilindro);
 	}
@@ -191,8 +195,8 @@ void *sectorMasCercano(t_list *list,unsigned long sectorActual, char flagSuboBaj
 	}
 
 
-		a = masCercano;
-		printf("%d",a->numeroSector);
+		//a = masCercano;
+		//printf("%d",a->numeroSector);
 
 	return masCercano;
 }
@@ -320,9 +324,9 @@ int main(void) {
 
 		for(i=0;i<5;i++){
 			sectorLectura *nSector=malloc(sizeof(sectorLectura));
-			nSector->numeroSector=(long)rand()%20001;
+			nSector->numeroSector=(unsigned long)rand()%20000;
 			cant=collection_list_add(nLista,nSector);
-			printf("Sector: %d\n",nSector->numeroSector);
+			printf("Sector: %ld\n",nSector->numeroSector);
 		}
 
 		//Parametros para el Thread !

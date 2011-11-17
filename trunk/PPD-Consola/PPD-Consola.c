@@ -26,7 +26,11 @@
 
 #define SOCK_PATH "socket_consola"
 
+t_socket_unix_client *client;
+
 void funcInfo(void *nada, t_array *nada2){
+	sockets_unix_sendString(client,"funcInfoPPD");
+
 	printf("Posicion actual: \n");
 }
 void funcClean(void *nada, t_array *clusters){
@@ -45,19 +49,23 @@ int main(int argc,char *argv[]){
 	/*int s, len;
 	struct sockaddr_un local;*/
 	char input[20];
-	t_socket_unix_client *client;
 
-	t_commands *comandos = commands_create("-", "", " ");
+
+	t_commands *comandos = commands_create("-", "", (int)" ");
 	commands_add(comandos, "info",funcInfo);
 	commands_add(comandos, "clean",funcClean);
 	commands_add(comandos, "trace",funcTrace);
 
-	printf("** Welcome back master **\n\n");
+	//printf("** Estableciendo conexion **\n\n");
 
 	client= sockets_unix_createClient();
 	while(!sockets_unix_connect(client)){
 		sleep(1);
 	};
+
+	//fprintf(stdout,"\033[2J");
+	//fprintf(stdout,"\033[1;1H");
+	//printf("** Welcome back master **\n\n");
 	sockets_unix_sendString(client,"Luke i'm you client");
 
 
